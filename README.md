@@ -29,11 +29,13 @@ See [`main_old.py`](main_old.py) for detailed implementation. I made some change
 Luckily, I found my model performance was very good, with fine outline of the road and no large misclassified regions. Here are some examples below:
 
 **FCN Skip Layer Architecture Results**
+
 ![pic1](runs/1505525477.7859635/um_000000.png)
 ![pic2](runs/1505525477.7859635/umm_000008.png)
 ![pic3](runs/1505525477.7859635/uu_000024.png)
 
 As for comparison, I presented the results of the other architecture design by myself.
+
 ![pic1](runs/1505428016.559246/um_000000.png)
 ![pic2](runs/1505428016.559246/umm_000008.png)
 ![pic3](runs/1505428016.559246/uu_000024.png)
