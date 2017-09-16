@@ -3,7 +3,7 @@ import tensorflow as tf
 import helper
 import warnings
 from distutils.version import LooseVersion
-import project_tests as tests
+import project_tests_old as tests
 
 
 # Check TensorFlow Version
@@ -46,9 +46,10 @@ def load_vgg(sess, vgg_path):
 tests.test_load_vgg(load_vgg, tf)
 
 
-def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
+def layers(vgg_input_tensor, vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     """
     Create the layers for a fully convolutional network.  Build skip-layers using the vgg layers.
+    :param vgg_input_tensor: TF Tensor for input image
     :param vgg_layer7_out: TF Tensor for VGG Layer 3 output
     :param vgg_layer4_out: TF Tensor for VGG Layer 4 output
     :param vgg_layer3_out: TF Tensor for VGG Layer 7 output
@@ -56,23 +57,28 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     :return: The Tensor for the last layer of output
     """
     # TODO: Implement function
+    # Implement the decode structure like PSP structure: arXiv:1612.01105v2
     decode_conv1 = tf.layers.conv2d(vgg_layer7_out, 64, (1, 1), (1, 1), padding='same', name='decode_conv1')
-    decode_conv1_upsample = tf.layers.conv2d_transpose(decode_conv1, 64, (4, 4), (2, 2), padding='same',
+    decode_conv1_upsample = tf.layers.conv2d_transpose(decode_conv1, 64, (8, 8), (4, 4), padding='same',
                                                        name='decode_conv1_upsample')
     decode_conv2 = tf.layers.conv2d(vgg_layer4_out, 64, (1, 1), (1, 1), padding='same', name='decode_conv2')
-    decode_skip1 = tf.add(decode_conv1_upsample, decode_conv2, name='decode_skip1')
-
-    decode_skip1_upsample = tf.layers.conv2d_transpose(decode_skip1, 64, (4, 4), (2, 2), padding='same',
+    decode_conv2_upsample = tf.layers.conv2d_transpose(decode_conv2, 64, (4, 4), (2, 2), padding='same',
                                                        name='decode_conv2_upsample')
     decode_conv3 = tf.layers.conv2d(vgg_layer3_out, 64, (1, 1), (1, 1), padding='same', name='decode_conv3')
-    decode_skip2 = tf.add(decode_skip1_upsample, decode_conv3, name='decode_skip2')
-
-    decode_skip2_upsample = tf.layers.conv2d_transpose(decode_skip2, 32, (8, 8), (4, 4), padding='same',
-                                                       name='decode_skip2_upsample')
-    decode_conv4 = tf.layers.conv2d(decode_skip2_upsample, 32, (3, 3), (1, 1), padding='same', activation=tf.nn.relu,
+    decode_concat = tf.concat([decode_conv1_upsample, decode_conv2_upsample, decode_conv3], axis=-1,
+                              name='decode_concat')
+    decode_conv4 = tf.layers.conv2d(decode_concat, 128, (3, 3), (1, 1), padding='same', activation=tf.nn.relu,
                                     name='decode_conv4')
-    decode_conv5 = tf.layers.conv2d(decode_conv4, num_classes, (1, 1), (1, 1), padding='same', name='decode_conv5')
-    decode_out = tf.layers.conv2d_transpose(decode_conv5, num_classes, (4, 4), (2, 2), padding='same',
+    decode_conv4_upsample = tf.layers.conv2d_transpose(decode_conv4, 32, (8, 8), (4, 4), padding='same',
+                                                       name='decode_conv4_upsample')
+    decode_conv5_1 = tf.layers.conv2d(vgg_input_tensor, 32, (3, 3), (2, 2), padding='same', name='decode_conv5_1')
+    decode_conv5_2 = tf.layers.conv2d(decode_conv5_1, 32, (3, 3), (1, 1), padding='same', activation=tf.nn.relu,
+                                      name='decode_conv5_2')
+    decode_concat2 = tf.concat([decode_conv5_2, decode_conv4_upsample], axis=-1, name='decode_concat2')
+    decode_conv6 = tf.layers.conv2d(decode_concat2, 32, (3, 3), (1, 1), padding='same', activation=tf.nn.relu,
+                                    name='decode_conv6')
+    decode_conv7 = tf.layers.conv2d(decode_conv6, num_classes, (1, 1), (1, 1), padding='same', name='decode_conv7')
+    decode_out = tf.layers.conv2d_transpose(decode_conv7, num_classes, (4, 4), (2, 2), padding='same',
                                             name='deconv_out')
 
     return decode_out
@@ -172,7 +178,8 @@ def run():
         # TODO: Build NN using load_vgg, layers, and optimize function
         vgg_input_tensor, vgg_keep_prob_tensor, vgg_layer3_out_tensor, vgg_layer4_out_tensor, vgg_layer7_out_tensor = load_vgg(sess, vgg_path)
 
-        nn_last_layer = layers(vgg_layer3_out_tensor, vgg_layer4_out_tensor, vgg_layer7_out_tensor, num_classes)
+        nn_last_layer = layers(vgg_input_tensor, vgg_layer3_out_tensor, vgg_layer4_out_tensor, vgg_layer7_out_tensor,
+                               num_classes)
         logits, train_op, cross_entropy_loss = optimize(nn_last_layer, correct_label, learning_rate, num_classes)
 
         sess.run(tf.global_variables_initializer())
